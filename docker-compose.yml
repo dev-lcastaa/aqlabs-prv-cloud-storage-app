@@ -1,0 +1,50 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: s3mock-db
+    environment:
+      POSTGRES_DB: s3mock
+      POSTGRES_USER: s3mock
+      POSTGRES_PASSWORD: s3mock
+    volumes:
+      - ./volumes/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U s3mock -d s3mock"]
+      interval: 5s
+      timeout: 5s
+      retries: 8
+    ports:
+      - "5432:5432"
+
+  backend:
+    build:
+      context: ./backend
+    container_name: s3mock-backend
+    environment:
+      APP_NAME: Aqlabs Object Store Command Center API
+      API_PREFIX: /api
+      DATABASE_URL: postgresql+psycopg://s3mock:s3mock@db:5432/s3mock
+      STORAGE_ROOT: /data/storage
+      ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+    volumes:
+      - ./volumes/storage:/data/storage
+      - ./backend/app:/app/app
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: s3mock-frontend
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"

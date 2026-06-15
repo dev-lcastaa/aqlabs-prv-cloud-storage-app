@@ -1,0 +1,84 @@
+:root {
+  --bg: #080c14;
+  --surface: #0f1624;
+  --surface-alt: #111d31;
+  --border: #20314c;
+  --text: #e6f1ff;
+  --muted: #8ca4c6;
+  --brand: #36d0b9;
+  --brand-muted: #2f8d80;
+  --chip-bg: rgba(54, 208, 185, 0.12);
+  --danger: #ff6a5f;
+  --danger-bg: rgba(255, 106, 95, 0.12);
+  --mono: 'JetBrains Mono', 'Consolas', monospace;
+  --sans: 'Space Grotesk', 'Segoe UI', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100svh;
+  color: var(--text);
+  font-family: var(--sans);
+  background:
+    radial-gradient(circle at 12% 12%, rgba(54, 208, 185, 0.22), rgba(0, 0, 0, 0) 25%),
+    radial-gradient(circle at 88% 20%, rgba(77, 139, 255, 0.2), rgba(0, 0, 0, 0) 28%),
+    linear-gradient(180deg, #07101e 0%, #060a11 100%);
+}
+
+#root {
+  min-height: 100svh;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: clamp(1.6rem, 2.2vw, 2.3rem);
+  letter-spacing: 0.01em;
+}
+
+h2 {
+  font-size: 1.1rem;
+  margin-bottom: 12px;
+}
+
+input,
+textarea,
+button {
+  font-family: inherit;
+  font-size: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  color: var(--text);
+  padding: 10px 12px;
+}
+
+input:focus,
+textarea:focus,
+button:focus {
+  outline: 2px solid rgba(54, 208, 185, 0.3);
+  outline-offset: 0;
+}
+
+button {
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--brand);
+  transform: translateY(-1px);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
