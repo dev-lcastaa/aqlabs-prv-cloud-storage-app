@@ -71,3 +71,26 @@ export async function deleteObjectsBulk(bucketId, objectIds) {
   })
   return readJson(response)
 }
+
+export async function deleteBucketContents(bucketId) {
+  const response = await fetch(`${API_BASE}/api/buckets/${bucketId}/objects`, {
+    method: 'DELETE',
+  })
+  return readJson(response)
+}
+
+export async function renameBucket(bucketId, newName) {
+  const response = await fetch(`${API_BASE}/api/buckets/${bucketId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: newName }),
+  })
+  return readJson(response)
+}
+
+export async function deleteBucket(bucketId) {
+  const response = await fetch(`${API_BASE}/api/buckets/${bucketId}`, {
+    method: 'DELETE',
+  })
+  return readJson(response)
+}

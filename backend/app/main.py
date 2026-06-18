@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .database import Base, engine
-from .models import bucket, object_entry  # noqa: F401
+from .models import bucket, object_entry, storage_alloc  # noqa: F401
 from .routes.buckets import router as buckets_router
 from .routes.health import router as health_router
 from .routes.objects import router as objects_router
@@ -25,7 +25,9 @@ app.add_middleware(
 
 @app.on_event("startup")
 def startup() -> None:
-    Path(settings.storage_root).mkdir(parents=True, exist_ok=True)
+    # Create all configured storage roots
+    for root in settings.storage_roots_list:
+        Path(root).mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(bind=engine)
 
 

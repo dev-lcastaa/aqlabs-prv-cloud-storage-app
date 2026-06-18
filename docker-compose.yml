@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: s3mock
       POSTGRES_PASSWORD: s3mock
     volumes:
-      - ./volumes/postgres:/var/lib/postgresql/data
+      - /mnt/pidrive02/postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U s3mock -d s3mock"]
       interval: 5s
@@ -24,11 +24,12 @@ services:
       APP_NAME: Aqlabs Object Store Command Center API
       API_PREFIX: /api
       DATABASE_URL: postgresql+psycopg://s3mock:s3mock@db:5432/s3mock
-      STORAGE_ROOT: /data/storage
-      ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      STORAGE_ROOTS: /data/storage01,/data/storage02
+      ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173,http://s3mock-frontend:5173
       PYTHONPATH: /app
     volumes:
-      - ./volumes/storage:/data/storage
+      - /mnt/pidrive01/storage:/data/storage01
+      - /mnt/pidrive02/storage:/data/storage02
     depends_on:
       db:
         condition: service_healthy
@@ -45,7 +46,7 @@ services:
       context: ./frontend
     container_name: s3mock-frontend
     environment:
-      VITE_API_BASE_URL: http://localhost:8000
+      VITE_API_BASE_URL: http://s3mock-backend:8000
     depends_on:
       backend:
         condition: service_healthy

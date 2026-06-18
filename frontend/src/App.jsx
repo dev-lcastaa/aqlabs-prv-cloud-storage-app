@@ -3,7 +3,9 @@ import {
   createFolder,
   createBucket,
   deleteObject,
+  deleteBucket,
   deleteObjectsBulk,
+  deleteBucketContents,
   listBuckets,
   listObjects,
   uploadObject,
@@ -107,6 +109,35 @@ function App() {
     } catch (err) {
       setError(err.message)
       setAdminBucketObjects([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function onPurgeBucket() {
+    if (!adminBucketId) return
+    setError('')
+    setLoading(true)
+    try {
+      await deleteBucketContents(adminBucketId)
+      setAdminBucketObjects([])
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function onDeleteBucket() {
+    if (!adminBucketId) return
+    setError('')
+    setLoading(true)
+    try {
+      await deleteBucket(adminBucketId)
+      await openAdmin()
+      setView('admin')
+    } catch (err) {
+      setError(err.message)
     } finally {
       setLoading(false)
     }
@@ -414,7 +445,11 @@ function App() {
         <section className="panel wide">
           <div className="section-head">
             <h2>Admin | Object Mapping {activeAdminBucket ? `for ${activeAdminBucket.name}` : ''}</h2>
-            <button type="button" className="ghost" onClick={() => setView('admin')}>Back to admin buckets</button>
+            <div>
+              <button type="button" className="ghost" onClick={() => setView('admin')}>Back to admin buckets</button>
+              <button type="button" className="danger" onClick={onPurgeBucket} disabled={loading || !adminBucketId}>Purge contents</button>
+              <button type="button" className="danger" onClick={onDeleteBucket} disabled={loading || !adminBucketId}>Delete bucket</button>
+            </div>
           </div>
           <div className="table-wrap">
             <table>

@@ -11,11 +11,17 @@ from ..database import get_db
 from ..models.bucket import Bucket
 from ..models.object_entry import ObjectEntry
 from ..schemas.object_entry import BulkDeleteRequest, BulkDeleteResult, ObjectOut
-from ..storage.file_store import delete_file_if_exists, resolve_storage_path, write_upload_file
+from ..storage.file_store import (
+    delete_file_if_exists,
+    resolve_storage_path,
+    write_upload_file,
+    select_and_resolve_path,
+    path_from_stored_relative,
+)
 
 router = APIRouter(prefix="/buckets/{bucket_id}/objects", tags=["objects"])
 settings = get_settings()
-storage_root = Path(settings.storage_root).resolve()
+storage_roots = settings.storage_roots_list
 
 
 def _get_bucket_or_404(bucket_id: str, db: Session) -> Bucket:
@@ -45,9 +51,11 @@ def create_folder(
 ) -> dict[str, str]:
     _get_bucket_or_404(bucket_id, db)
     # Reuse object-key path validation by resolving a temp marker file path.
-    marker_path = resolve_storage_path(storage_root, bucket_id, f"{path.strip('/')}/.folder")
+    # create marker in the first configured storage root
+    first_root = Path(storage_roots[0]).resolve()
+    marker_path = resolve_storage_path(first_root, bucket_id, f"{path.strip('/')}/.folder")
     marker_path.parent.mkdir(parents=True, exist_ok=True)
-    return {"folder_path": str(marker_path.parent.relative_to(storage_root))}
+    return {"folder_path": str(marker_path.parent.relative_to(first_root))}
 
 
 @router.get("", response_model=list[ObjectOut])
@@ -68,16 +76,15 @@ async def upload_object(
     _get_bucket_or_404(bucket_id, db)
 
     metadata_json = _parse_metadata(metadata)
-    target_path = resolve_storage_path(storage_root, bucket_id, key)
-    relative_path = str(target_path.relative_to(storage_root))
-
+    # Select storage root via DB-backed round-robin and resolve target path
+    target_path, stored_relative = select_and_resolve_path(db, storage_roots, bucket_id, key)
     size_bytes, etag = await write_upload_file(target_path, file)
 
     entry = ObjectEntry(
         bucket_id=bucket_id,
         object_key=key,
         original_filename=file.filename or "unknown",
-        stored_relative_path=relative_path,
+        stored_relative_path=stored_relative,
         content_type=file.content_type,
         etag=etag,
         size_bytes=size_bytes,
@@ -103,7 +110,7 @@ def delete_object(bucket_id: str, object_id: str, db: Session = Depends(get_db))
     if not entry:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found")
 
-    file_path = (storage_root / entry.stored_relative_path).resolve()
+    file_path = path_from_stored_relative(storage_roots, entry.stored_relative_path)
     delete_file_if_exists(file_path)
 
     db.delete(entry)
@@ -126,7 +133,7 @@ def delete_objects_bulk(
             failed.append({"object_id": object_id, "reason": "not_found"})
             continue
 
-        file_path = (storage_root / entry.stored_relative_path).resolve()
+        file_path = path_from_stored_relative(storage_roots, entry.stored_relative_path)
         try:
             delete_file_if_exists(file_path)
             db.delete(entry)
