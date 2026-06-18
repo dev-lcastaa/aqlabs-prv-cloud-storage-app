@@ -18,12 +18,24 @@ storage_roots = settings.storage_roots_list
 router = APIRouter(prefix="/buckets", tags=["buckets"])
 
 
-@router.get("", response_model=list[BucketOut])
+@router.get(
+    "",
+    response_model=list[BucketOut],
+    summary="List buckets",
+    description="Return all buckets ordered by newest first.",
+)
 def list_buckets(db: Session = Depends(get_db)) -> list[Bucket]:
     return list(db.scalars(select(Bucket).order_by(Bucket.created_at.desc())).all())
 
 
-@router.post("", response_model=BucketOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=BucketOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a bucket",
+    description="Create a new bucket. Bucket names must be unique (3-120 characters).",
+    responses={409: {"description": "Bucket name already exists"}},
+)
 def create_bucket(payload: BucketCreate, db: Session = Depends(get_db)) -> Bucket:
     exists = db.scalar(select(Bucket).where(Bucket.name == payload.name))
     if exists:
@@ -36,7 +48,13 @@ def create_bucket(payload: BucketCreate, db: Session = Depends(get_db)) -> Bucke
     return bucket
 
 
-@router.delete("/{bucket_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{bucket_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a bucket",
+    description="Delete a bucket and all of its objects (cascade).",
+    responses={404: {"description": "Bucket not found"}},
+)
 def delete_bucket(bucket_id: str, db: Session = Depends(get_db)) -> None:
     bucket = db.get(Bucket, bucket_id)
     if not bucket:
@@ -46,7 +64,13 @@ def delete_bucket(bucket_id: str, db: Session = Depends(get_db)) -> None:
     db.commit()
 
 
-@router.delete("/{bucket_id}/objects", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{bucket_id}/objects",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Purge bucket contents",
+    description="Delete all objects in a bucket (files and metadata) while keeping the bucket itself.",
+    responses={404: {"description": "Bucket not found"}},
+)
 def purge_bucket_objects(bucket_id: str, db: Session = Depends(get_db)) -> None:
     bucket = db.get(Bucket, bucket_id)
     if not bucket:
@@ -66,7 +90,16 @@ def purge_bucket_objects(bucket_id: str, db: Session = Depends(get_db)) -> None:
     db.commit()
 
 
-@router.patch("/{bucket_id}", response_model=BucketOut)
+@router.patch(
+    "/{bucket_id}",
+    response_model=BucketOut,
+    summary="Rename a bucket",
+    description="Update a bucket's name (metadata only). The new name must be unique.",
+    responses={
+        404: {"description": "Bucket not found"},
+        409: {"description": "Bucket name already exists"},
+    },
+)
 def rename_bucket(bucket_id: str, payload: BucketCreate, db: Session = Depends(get_db)) -> Bucket:
     bucket = db.get(Bucket, bucket_id)
     if not bucket:

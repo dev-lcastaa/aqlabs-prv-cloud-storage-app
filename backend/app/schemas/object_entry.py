@@ -18,7 +18,11 @@ class ObjectOut(BaseModel):
 
 
 class BulkDeleteRequest(BaseModel):
-    object_ids: list[str] = Field(min_length=1)
+    object_ids: list[str] = Field(
+        min_length=1,
+        description="List of object IDs to delete.",
+        examples=[["3f9a...", "7c21..."]],
+    )
 
 
 class BulkDeleteResult(BaseModel):

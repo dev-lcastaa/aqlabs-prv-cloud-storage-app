@@ -43,7 +43,13 @@ def _parse_metadata(metadata: str | None) -> dict | None:
     return parsed
 
 
-@router.post("/folders", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/folders",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a folder",
+    description="Create an empty folder (prefix) inside a bucket.",
+    responses={404: {"description": "Bucket not found"}},
+)
 def create_folder(
     bucket_id: str,
     path: str = Form(...),
@@ -58,14 +64,34 @@ def create_folder(
     return {"folder_path": str(marker_path.parent.relative_to(first_root))}
 
 
-@router.get("", response_model=list[ObjectOut])
+@router.get(
+    "",
+    response_model=list[ObjectOut],
+    summary="List objects",
+    description="List all objects in a bucket, newest first.",
+    responses={404: {"description": "Bucket not found"}},
+)
 def list_objects(bucket_id: str, db: Session = Depends(get_db)) -> list[ObjectEntry]:
     _get_bucket_or_404(bucket_id, db)
     stmt = select(ObjectEntry).where(ObjectEntry.bucket_id == bucket_id).order_by(ObjectEntry.created_at.desc())
     return list(db.scalars(stmt).all())
 
 
-@router.post("", response_model=ObjectOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=ObjectOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Upload an object",
+    description=(
+        "Upload a file to a bucket under the given key. "
+        "Optionally attach JSON metadata. The object key must be unique within the bucket. "
+        "Files are distributed across storage volumes via round-robin allocation."
+    ),
+    responses={
+        404: {"description": "Bucket not found"},
+        409: {"description": "Object key already exists in bucket"},
+    },
+)
 async def upload_object(
     bucket_id: str,
     file: UploadFile = File(...),
@@ -103,7 +129,13 @@ async def upload_object(
     return entry
 
 
-@router.delete("/{object_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{object_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete an object",
+    description="Delete a single object (file and metadata) from a bucket.",
+    responses={404: {"description": "Bucket or object not found"}},
+)
 def delete_object(bucket_id: str, object_id: str, db: Session = Depends(get_db)) -> None:
     _get_bucket_or_404(bucket_id, db)
     entry = db.scalar(select(ObjectEntry).where(ObjectEntry.id == object_id, ObjectEntry.bucket_id == bucket_id))
@@ -117,7 +149,13 @@ def delete_object(bucket_id: str, object_id: str, db: Session = Depends(get_db))
     db.commit()
 
 
-@router.post("/delete-bulk", response_model=BulkDeleteResult)
+@router.post(
+    "/delete-bulk",
+    response_model=BulkDeleteResult,
+    summary="Bulk delete objects",
+    description="Delete multiple objects by ID. Returns per-item success and failure results.",
+    responses={404: {"description": "Bucket not found"}},
+)
 def delete_objects_bulk(
     bucket_id: str,
     payload: BulkDeleteRequest,
