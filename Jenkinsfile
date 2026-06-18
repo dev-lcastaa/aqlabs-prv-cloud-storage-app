@@ -77,7 +77,7 @@ pipeline {
             steps {
                 echo 'Deploying stack with docker compose...'
                 sh '''
-                docker compose up -d --remove-orphans
+                docker compose up -d --build --remove-orphans
                 docker compose ps
                 '''
             }
