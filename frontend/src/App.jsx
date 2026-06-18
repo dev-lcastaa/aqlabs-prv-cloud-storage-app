@@ -4,7 +4,6 @@ import {
   createBucket,
   deleteObject,
   deleteBucket,
-  deleteObjectsBulk,
   deleteBucketContents,
   listBuckets,
   listObjects,
@@ -19,12 +18,12 @@ function App() {
   const [objects, setObjects] = useState([])
   const [adminBucketId, setAdminBucketId] = useState('')
   const [adminBucketObjects, setAdminBucketObjects] = useState([])
-  const [selectedObjectIds, setSelectedObjectIds] = useState([])
   const [bucketName, setBucketName] = useState('')
   const [objectKey, setObjectKey] = useState('')
   const [folderPath, setFolderPath] = useState('')
   const [objectMetadata, setObjectMetadata] = useState('')
   const [uploadFile, setUploadFile] = useState(null)
+  const [uploadOpen, setUploadOpen] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -60,12 +59,10 @@ function App() {
   async function loadObjects(bucketId) {
     if (!bucketId) {
       setObjects([])
-      setSelectedObjectIds([])
       return
     }
     const data = await listObjects(bucketId)
     setObjects(data)
-    setSelectedObjectIds([])
   }
 
   async function openBucket(bucketId) {
@@ -143,6 +140,21 @@ function App() {
     }
   }
 
+  async function onAdminDeleteObject(objectId) {
+    if (!adminBucketId) return
+    setError('')
+    setLoading(true)
+    try {
+      await deleteObject(adminBucketId, objectId)
+      const bucketObjects = await listObjects(adminBucketId)
+      setAdminBucketObjects(bucketObjects)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     async function init() {
       setLoading(true)
@@ -205,6 +217,7 @@ function App() {
       if (fileInput) {
         fileInput.value = ''
       }
+      setUploadOpen(false)
       await loadObjects(activeBucketId)
     } catch (err) {
       setError(err.message)
@@ -228,47 +241,6 @@ function App() {
     try {
       await createFolder(activeBucketId, folderPath.trim())
       setFolderPath('')
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  function toggleSelection(objectId) {
-    setSelectedObjectIds((current) => {
-      if (current.includes(objectId)) {
-        return current.filter((id) => id !== objectId)
-      }
-      return [...current, objectId]
-    })
-  }
-
-  async function onDeleteSingle(objectId) {
-    setError('')
-    setLoading(true)
-    try {
-      await deleteObject(activeBucketId, objectId)
-      await loadObjects(activeBucketId)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function onDeleteBulk() {
-    if (selectedObjectIds.length === 0) {
-      return
-    }
-    setError('')
-    setLoading(true)
-    try {
-      const result = await deleteObjectsBulk(activeBucketId, selectedObjectIds)
-      if (result.failed.length > 0) {
-        setError(`Deleted ${result.deleted.length}, failed ${result.failed.length}`)
-      }
-      await loadObjects(activeBucketId)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -345,72 +317,66 @@ function App() {
 
       {view === 'bucket' ? (
         <section className="panel wide">
+          <button type="button" className="ghost back-link" onClick={() => setView('home')}>
+            ← Back to buckets
+          </button>
+
           <div className="section-head">
             <h2>Objects {activeBucket ? `in ${activeBucket.name}` : ''}</h2>
-            <button type="button" className="ghost" onClick={() => setView('home')}>Back to buckets</button>
-          </div>
-
-          <form className="upload-grid" onSubmit={onUpload}>
-            <div className="folder-row">
-              <input
-                value={folderPath}
-                onChange={(event) => setFolderPath(event.target.value)}
-                placeholder="reports/2026"
-              />
-              <button type="button" onClick={onCreateFolder} disabled={loading || !activeBucketId}>
-                Create folder
-              </button>
-            </div>
-            <input
-              id="file-input"
-              type="file"
-              onChange={(event) => setUploadFile(event.target.files?.[0] ?? null)}
-              required
-            />
-            <input
-              value={objectKey}
-              onChange={(event) => setObjectKey(event.target.value)}
-              placeholder="reports/2026/june.csv"
-              required
-            />
-            <textarea
-              value={objectMetadata}
-              onChange={(event) => setObjectMetadata(event.target.value)}
-              placeholder='{"owner":"ops","env":"dev"}'
-              rows={3}
-            />
-            <button type="submit" disabled={loading || !activeBucketId}>Upload object</button>
-          </form>
-
-          <div className="actions-row">
             <button
               type="button"
-              className="danger"
-              onClick={onDeleteBulk}
-              disabled={loading || selectedObjectIds.length === 0}
+              onClick={() => setUploadOpen((open) => !open)}
+              disabled={!activeBucketId}
             >
-              Delete selected ({selectedObjectIds.length})
+              {uploadOpen ? 'Close upload' : 'Upload object'}
             </button>
           </div>
+
+          {uploadOpen ? (
+            <form className="upload-grid" onSubmit={onUpload}>
+              <div className="folder-row">
+                <input
+                  value={folderPath}
+                  onChange={(event) => setFolderPath(event.target.value)}
+                  placeholder="reports/2026"
+                />
+                <button type="button" onClick={onCreateFolder} disabled={loading || !activeBucketId}>
+                  Create folder
+                </button>
+              </div>
+              <label className="field-label">File</label>
+              <input
+                id="file-input"
+                type="file"
+                onChange={(event) => setUploadFile(event.target.files?.[0] ?? null)}
+                required
+              />
+              <label className="field-label">Object key (name / path)</label>
+              <input
+                value={objectKey}
+                onChange={(event) => setObjectKey(event.target.value)}
+                placeholder="reports/2026/june.csv"
+                required
+              />
+              <label className="field-label">Metadata (JSON, optional)</label>
+              <textarea
+                value={objectMetadata}
+                onChange={(event) => setObjectMetadata(event.target.value)}
+                placeholder='{"owner":"ops","env":"dev"}'
+                rows={3}
+              />
+              <button type="submit" disabled={loading || !activeBucketId}>Upload object</button>
+            </form>
+          ) : null}
 
           <div className="object-grid">
             {objects.map((object) => (
               <article key={object.id} className="tile object-tile">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={selectedObjectIds.includes(object.id)}
-                    onChange={() => toggleSelection(object.id)}
-                  />
-                </label>
                 <span className="icon">📦</span>
                 <div className="tile-text">
                   <strong>{object.object_key}</strong>
                   <small>{formatBytes(object.size_bytes)} | {object.etag.slice(0, 10)}...</small>
                 </div>
-                <button type="button" className="danger ghost" onClick={() => onDeleteSingle(object.id)} disabled={loading}>
-                  Delete
-                </button>
               </article>
             ))}
             {objects.length === 0 ? <p className="empty">No objects in this bucket.</p> : null}
@@ -460,6 +426,7 @@ function App() {
                   <th>Size</th>
                   <th>ETag</th>
                   <th>Date Created</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -469,6 +436,16 @@ function App() {
                     <td>{formatBytes(obj.size_bytes)}</td>
                     <td className="mono">{obj.etag}</td>
                     <td>{new Date(obj.created_at).toLocaleString()}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="danger ghost"
+                        onClick={() => onAdminDeleteObject(obj.id)}
+                        disabled={loading}
+                      >
+                        Delete
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -203,10 +203,20 @@
 
 .object-tile {
   display: grid;
-  grid-template-columns: auto auto 1fr auto;
+  grid-template-columns: auto 1fr;
   align-items: center;
   gap: 10px;
   padding: 10px;
+}
+
+.back-link {
+  margin-bottom: 12px;
+}
+
+.field-label {
+  font-size: 0.8rem;
+  opacity: 0.75;
+  margin-bottom: -4px;
 }
 
 .tile-text {
